@@ -1,0 +1,69 @@
+pharma_cloud_backend/
+│
+├── app.py
+├── database.py
+├── models.py
+├── requirements.txt
+└── pharma_data.db 
+
+flask
+flask_sqlalchemy
+
+from flask_sqlalchemy import SQLAlchemy
+
+db = SQLAlchemy()
+
+from database import db
+
+class PharmaRecord(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    batch_number = db.Column(db.String(100), nullable=False)
+    product_name = db.Column(db.String(200), nullable=False)
+    test_result = db.Column(db.String(200), nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+
+    from flask import Flask, request, jsonify
+from database import db
+from models import PharmaRecord
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///pharma_data.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db.init_app(app)
+
+@app.before_first_request
+def create_tables():
+    db.create_all()
+
+@app.route('/')
+def home():
+    return "Welcome to PharmaCloud Backend!"
+
+@app.route('/records', methods=['POST'])
+def add_record():
+    data = request.get_json()
+    new_record = PharmaRecord(
+        batch_number=data['batch_number'],
+        product_name=data['product_name'],
+        test_result=data['test_result']
+    )
+    db.session.add(new_record)
+    db.session.commit()
+    return jsonify({'message': 'Record added successfully'}), 201
+
+@app.route('/records', methods=['GET'])
+def get_records():
+    records = PharmaRecord.query.all()
+    return jsonify([
+        {
+            'id': record.id,
+            'batch_number': record.batch_number,
+            'product_name': record.product_name,
+            'test_result': record.test_result,
+            'created_at': record.created_at
+        } for record in records
+    ])
+
+if __name__ == '__main__':
+    app.run(debug=True)
